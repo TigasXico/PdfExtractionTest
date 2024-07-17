@@ -4,14 +4,14 @@ using System.Text.RegularExpressions;
 using iText.Kernel.Pdf;
 using iText.Kernel.Pdf.Canvas.Parser;
 
-class Program
+public class Program
 {
-    private static readonly string[] headers = ["ATCUD", "Fatura", "NIF Adquirente", "Data", "Total", "Base", "IVA", "IRS"];
+    private static readonly string[] headers = ["NIF Estafeta","NIF Adquirente", "ATCUD", "Fatura", "Data", "Total", "IVA", "Base", "IRS"];
 
-    static void Main()
+    public static void Main()
     {
-        string pdfFilePath = "C:\\Users\\funny\\OneDrive\\Ambiente de Trabalho\\report.pdf";
-        string resultFilePath = "C:\\Users\\funny\\OneDrive\\Ambiente de Trabalho\\result.csv";
+        string pdfFilePath = "C:\\Users\\funny\\OneDrive\\Ambiente de Trabalho\\Glovo Ubers\\All reports\\report.pdf";
+        string resultFilePath = "C:\\Users\\funny\\OneDrive\\Ambiente de Trabalho\\Glovo Ubers\\All reports\\result.csv";
 
         // Create a PdfReader object to read the PDF file
         using var pdfReader = new PdfReader(pdfFilePath);
@@ -34,24 +34,20 @@ class Program
 
             var atcud = GetFieldByBegginingOfLine(lines, "ATCUD");
 
-            // Create a pattern for a word that starts with the letter "M"
-            string pattern = @"\d{9}";
+            var emittingNIF = "515642428";
 
-            // Create a Regex
-            var rg = new Regex(pattern);
+            var recievingNIF = lines[7];
 
-            var fiscalNumbers = rg.Matches(text);
-
-            if (fiscalNumbers.Count != 2)
+            if(string.IsNullOrWhiteSpace(recievingNIF)) 
             {
-                throw new Exception("Falhou em encontrar exatamente 2 NIFs");
+                throw new Exception("Não encontrou NIF recetor");
             }
 
-            var recievingNIF = fiscalNumbers[0].Value;
+            var dateAsString = GetFieldByPartialMatch(lines, "Data");
 
-            var emittingNIF = fiscalNumbers[1].Value;
+            var date = DateOnly.Parse(dateAsString);
 
-            var date = GetFieldByPartialMatch(lines, "Data");
+            dateAsString = date.ToString("yyyy-MM-dd");
 
             var totalIliquido = GetFieldByPartialMatch(lines, "Total Ilíquido").Replace('.', ',');
 
@@ -81,8 +77,8 @@ class Program
             Console.WriteLine($"Valor IRS: {totalIrsAsNumber:0.00}");
 
 
-            //["ATCUD", "Nº Fatura", "NIF Adquirente", "Data", "Total", "Base", "IVA", "IRS"];
-            string[] documentInfo = [atcud, numero_fatura, emittingNIF, date, EscapeCurrencyValue(totalDocAsNumber), EscapeCurrencyValue(totalIliquidoAsNumber), EscapeCurrencyValue(totalIvaAsNumber), EscapeCurrencyValue(totalIrsAsNumber)];
+            //["NIF Adquirente", "ATCUD", "Fatura", "Data", "Total", "Base", "IVA", "IRS"];
+            string[] documentInfo = [recievingNIF,emittingNIF, atcud, numero_fatura, dateAsString, EscapeCurrencyValue(totalDocAsNumber), EscapeCurrencyValue(totalIvaAsNumber), EscapeCurrencyValue(totalIliquidoAsNumber), EscapeCurrencyValue(totalIrsAsNumber)];
 
             resultWriter.WriteLine(string.Join(";", documentInfo));
 
@@ -91,7 +87,8 @@ class Program
 
     private static string EscapeCurrencyValue(float value)
     {
-        return $"\"{value:0.00}\"";
+        var absoluteValue = Math.Abs(value);
+        return $"\"{absoluteValue:0.00}\"";
     }
 
     private static string GetFieldByBegginingOfLine(string[] lines, string begginingOfLine)
